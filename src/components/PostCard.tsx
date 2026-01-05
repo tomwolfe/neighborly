@@ -1,21 +1,21 @@
 'use client';
 
 import React from 'react';
-import { Post } from '@/lib/types';
+import { Post, UserStats } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { getGravatarUrl, cn } from '@/lib/utils';
 import { MessageSquare, Award, CheckCircle2 } from 'lucide-react';
 
 interface PostCardProps {
   post: Post;
-  userStats: Record<string, { posts: number, replies: number }>;
+  userStats: Record<string, UserStats>;
   onReply: (post: Post) => void;
 }
 
 export default function PostCard({ post, userStats, onReply }: PostCardProps) {
-  const stats = userStats[post.nickname] || { posts: 0, replies: 0 };
-  const isActive = stats.posts >= 2;
-  const hasSwapped = stats.replies > 0;
+  const stats = userStats[post.nickname] || { post_count: 0, reply_count: 0 };
+  const isActive = stats.post_count >= 2;
+  const hasSwapped = stats.reply_count > 0;
 
   return (
     <div className="bg-white border border-warm-gray/10 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -30,16 +30,16 @@ export default function PostCard({ post, userStats, onReply }: PostCardProps) {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-warm-gray">{post.nickname}</h3>
-                <div className="flex gap-1">
+                <div className="flex gap-1" aria-label="Neighbor trust signals">
                   {isActive && (
-                    <span className="group relative">
-                      <Award size={14} className="text-sage" />
+                    <span className="group relative" role="status" aria-label="Active Neighbor: Has posted 2 or more times">
+                      <Award size={14} className="text-sage" aria-hidden="true" />
                       <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-warm-gray text-cream text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap">Active Neighbor</span>
                     </span>
                   )}
                   {hasSwapped && (
-                    <span className="group relative">
-                      <CheckCircle2 size={14} className="text-blue-500" />
+                    <span className="group relative" role="status" aria-label="Has Swapped: Has replied to others">
+                      <CheckCircle2 size={14} className="text-blue-500" aria-hidden="true" />
                       <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-warm-gray text-cream text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap">Has Swapped</span>
                     </span>
                   )}

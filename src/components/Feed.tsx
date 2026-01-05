@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { Post } from '@/lib/types';
+import { Post, UserStats } from '@/lib/types';
 import PostCard from './PostCard';
 import FilterBar from './FilterBar';
 import ReplyModal from './ReplyModal';
@@ -10,6 +10,7 @@ import { RefreshCcw } from 'lucide-react';
 
 export default function Feed() {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [userStats, setUserStats] = useState<Record<string, UserStats>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedNeighborhood, setSelectedNeighborhood] = useState('');
@@ -18,45 +19,61 @@ export default function Feed() {
 
   const fetchPosts = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    // Fetch posts with replies from the separate table
+    const { data: postsData, error: postsError } = await supabase
       .from('posts')
-      .select('*')
+      .select(`
+        *,
+        replies (*)
+      `)
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
-      setPosts(data);
+    if (!postsError && postsData) {
+      setPosts(postsData);
     }
+
+    // Fetch user stats from the view
+    const { data: statsData, error: statsError } = await supabase
+      .from('user_stats')
+      .select('*');
+
+    if (!statsError && statsData) {
+      const statsMap = statsData.reduce((acc, curr) => {
+        acc[curr.nickname] = curr;
+        return acc;
+      }, {} as Record<string, UserStats>);
+      setUserStats(statsMap);
+    }
+
     setLoading(false);
   };
 
   useEffect(() => {
     fetchPosts();
+
+    // Set up Realtime subscriptions
+    const postsChannel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'posts' },
+        () => fetchPosts()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'replies' },
+        () => fetchPosts()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(postsChannel);
+    };
   }, []);
 
   const neighborhoods = useMemo(() => {
     const unique = Array.from(new Set(posts.map(p => p.neighborhood)));
     return unique.sort().slice(0, 50);
-  }, [posts]);
-
-  // Calculate stats for badges
-  const userStats = useMemo(() => {
-    const stats: Record<string, { posts: number, replies: number }> = {};
-    
-    posts.forEach(post => {
-      // Count posts
-      if (!stats[post.nickname]) stats[post.nickname] = { posts: 0, replies: 0 };
-      stats[post.nickname].posts += 1;
-
-      // Count replies made by users
-      if (post.replies && Array.isArray(post.replies)) {
-        post.replies.forEach(reply => {
-          if (!stats[reply.nickname]) stats[reply.nickname] = { posts: 0, replies: 0 };
-          stats[reply.nickname].replies += 1;
-        });
-      }
-    });
-    
-    return stats;
   }, [posts]);
 
   const filteredPosts = useMemo(() => {

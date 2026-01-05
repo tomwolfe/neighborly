@@ -10,40 +10,39 @@ export async function POST(request: Request) {
 
     // Handle Reply
     if (postId) {
-      // 1. Fetch current post
-      const { data: post, error: fetchError } = await supabase
-        .from('posts')
-        .select('replies, reply_count')
-        .eq('id', postId)
+      const { data: reply, error: replyError } = await supabase
+        .from('replies')
+        .insert([
+          { 
+            post_id: postId,
+            nickname,
+            neighborhood,
+            content
+          }
+        ])
+        .select()
         .single();
 
-      if (fetchError || !post) {
-        return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+      if (replyError) {
+        return NextResponse.json({ error: replyError.message }, { status: 500 });
       }
 
-      const newReply: Reply = {
-        id: uuidv4(),
-        nickname,
-        neighborhood,
-        content,
-        created_at: new Date().toISOString(),
-      };
-
-      const updatedReplies = [...(post.replies || []), newReply];
+      // We still update reply_count on the post for performance (denormalization)
+      // but the source of truth is now the replies table.
+      // In a real app, this could be handled by a DB trigger.
+      const { error: updateError } = await supabase.rpc('increment_reply_count', { row_id: postId });
       
-      const { error: updateError } = await supabase
-        .from('posts')
-        .update({ 
-          replies: updatedReplies, 
-          reply_count: (post.reply_count || 0) + 1 
-        })
-        .eq('id', postId);
-
+      // If the RPC doesn't exist yet, we'll fall back to a less ideal update for now
+      // but ideally we add the RPC in the migration.
       if (updateError) {
-        return NextResponse.json({ error: updateError.message }, { status: 500 });
+        const { data: post } = await supabase.from('posts').select('reply_count').eq('id', postId).single();
+        await supabase
+          .from('posts')
+          .update({ reply_count: (post?.reply_count || 0) + 1 })
+          .eq('id', postId);
       }
 
-      return NextResponse.json({ success: true, reply: newReply });
+      return NextResponse.json({ success: true, reply });
     }
 
     // Handle New Post
@@ -55,7 +54,6 @@ export async function POST(request: Request) {
           neighborhood, 
           offer, 
           need, 
-          replies: [], 
           reply_count: 0,
           barter_only: true
         }
