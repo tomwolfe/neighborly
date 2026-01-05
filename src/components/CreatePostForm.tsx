@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { cn } from '@/lib/utils';
+import { cn, getNeighborId } from '@/lib/utils';
 import { Send } from 'lucide-react';
 
 interface CreatePostFormProps {
@@ -31,7 +31,13 @@ export default function CreatePostForm({ onSuccess }: CreatePostFormProps) {
       const response = await fetch('/api/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nickname, neighborhood, offer, need }),
+        body: JSON.stringify({ 
+          neighborId: getNeighborId(),
+          nickname, 
+          neighborhood, 
+          offer, 
+          need 
+        }),
       });
 
       if (response.ok) {

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Post } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { cn, getNeighborId } from '@/lib/utils';
 import { X, Send } from 'lucide-react';
 
 interface ReplyModalProps {
@@ -41,6 +41,7 @@ export default function ReplyModal({ post, onClose, onSuccess }: ReplyModalProps
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           postId: post.id, 
+          neighborId: getNeighborId(),
           nickname, 
           neighborhood, 
           content 

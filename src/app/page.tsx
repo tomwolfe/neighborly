@@ -4,12 +4,15 @@ import React, { useState } from 'react';
 import Navbar from '@/components/Navbar';
 import CreatePostForm from '@/components/CreatePostForm';
 import Feed from '@/components/Feed';
+import Toast from '@/components/ui/Toast';
 
 export default function Home() {
   const [refreshKey, setRefreshKey] = useState(0);
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
 
   const handlePostSuccess = () => {
     setRefreshKey(prev => prev + 1);
+    setToast({ message: 'Posted to the neighborhood board!', type: 'success' });
   };
 
   return (
@@ -31,6 +34,14 @@ export default function Home() {
         <div className="mt-12">
           <Feed key={refreshKey} />
         </div>
+
+        {toast && (
+          <Toast 
+            message={toast.message} 
+            type={toast.type} 
+            onClose={() => setToast(null)} 
+          />
+        )}
 
         <footer className="mt-20 py-10 border-t border-warm-gray/10 text-center">
           <p className="text-xs font-bold uppercase tracking-widest text-warm-gray/30 mb-2">Neighborly</p>

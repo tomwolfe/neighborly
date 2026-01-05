@@ -1,10 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Post, UserStats } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
-import { getGravatarUrl, cn } from '@/lib/utils';
-import { MessageSquare, Award, CheckCircle2 } from 'lucide-react';
+import { getGravatarUrl, cn, getNeighborId } from '@/lib/utils';
+import { MessageSquare, Award, CheckCircle2, User } from 'lucide-react';
 
 interface PostCardProps {
   post: Post;
@@ -13,12 +13,18 @@ interface PostCardProps {
 }
 
 export default function PostCard({ post, userStats, onReply }: PostCardProps) {
-  const stats = userStats[post.nickname] || { post_count: 0, reply_count: 0 };
+  const currentNeighborId = useMemo(() => getNeighborId(), []);
+  const isOwnPost = post.neighbor_id === currentNeighborId;
+  
+  const stats = userStats[post.neighbor_id] || { post_count: 0, reply_count: 0 };
   const isActive = stats.post_count >= 2;
   const hasSwapped = stats.reply_count > 0;
 
   return (
-    <div className="bg-white border border-warm-gray/10 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+    <div className={cn(
+      "bg-white border rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow",
+      isOwnPost ? "border-sage/30 ring-1 ring-sage/10" : "border-warm-gray/10"
+    )}>
       <div className="p-5">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -31,6 +37,11 @@ export default function PostCard({ post, userStats, onReply }: PostCardProps) {
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-warm-gray">{post.nickname}</h3>
                 <div className="flex gap-1" aria-label="Neighbor trust signals">
+                  {isOwnPost && (
+                    <span className="bg-sage/10 text-sage text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                      <User size={10} /> You
+                    </span>
+                  )}
                   {isActive && (
                     <span className="group relative" role="status" aria-label="Active Neighbor: Has posted 2 or more times">
                       <Award size={14} className="text-sage" aria-hidden="true" />

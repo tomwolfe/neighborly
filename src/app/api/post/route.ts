@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { postId, nickname, neighborhood, offer, need, content } = body;
+    const { postId, neighborId, nickname, neighborhood, offer, need, content } = body;
 
     // Handle Reply
     if (postId) {
@@ -15,6 +15,7 @@ export async function POST(request: Request) {
         .insert([
           { 
             post_id: postId,
+            neighbor_id: neighborId,
             nickname,
             neighborhood,
             content
@@ -27,21 +28,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: replyError.message }, { status: 500 });
       }
 
-      // We still update reply_count on the post for performance (denormalization)
-      // but the source of truth is now the replies table.
-      // In a real app, this could be handled by a DB trigger.
-      const { error: updateError } = await supabase.rpc('increment_reply_count', { row_id: postId });
-      
-      // If the RPC doesn't exist yet, we'll fall back to a less ideal update for now
-      // but ideally we add the RPC in the migration.
-      if (updateError) {
-        const { data: post } = await supabase.from('posts').select('reply_count').eq('id', postId).single();
-        await supabase
-          .from('posts')
-          .update({ reply_count: (post?.reply_count || 0) + 1 })
-          .eq('id', postId);
-      }
-
       return NextResponse.json({ success: true, reply });
     }
 
@@ -50,6 +36,7 @@ export async function POST(request: Request) {
       .from('posts')
       .insert([
         { 
+          neighbor_id: neighborId,
           nickname, 
           neighborhood, 
           offer, 

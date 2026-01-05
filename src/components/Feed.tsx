@@ -7,6 +7,7 @@ import PostCard from './PostCard';
 import FilterBar from './FilterBar';
 import ReplyModal from './ReplyModal';
 import { RefreshCcw } from 'lucide-react';
+import Toast from './ui/Toast';
 
 export default function Feed() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -16,9 +17,17 @@ export default function Feed() {
   const [selectedNeighborhood, setSelectedNeighborhood] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'offer' | 'need'>('all');
   const [replyingTo, setReplyingTo] = useState<Post | null>(null);
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
 
-  const fetchPosts = async () => {
-    setLoading(true);
+  const [limit, setLimit] = useState(10);
+  const [hasMore, setHasMore] = useState(true);
+
+  const fetchPosts = async (isLoadMore = false) => {
+    if (!isLoadMore) setLoading(true);
+    
+    const currentLimit = isLoadMore ? limit + 10 : limit;
+    if (isLoadMore) setLimit(currentLimit);
+
     // Fetch posts with replies from the separate table
     const { data: postsData, error: postsError } = await supabase
       .from('posts')
@@ -26,10 +35,12 @@ export default function Feed() {
         *,
         replies (*)
       `)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(0, currentLimit);
 
     if (!postsError && postsData) {
       setPosts(postsData);
+      setHasMore(postsData.length > currentLimit);
     }
 
     // Fetch user stats from the view
@@ -39,7 +50,7 @@ export default function Feed() {
 
     if (!statsError && statsData) {
       const statsMap = statsData.reduce((acc, curr) => {
-        acc[curr.nickname] = curr;
+        acc[curr.neighbor_id] = curr;
         return acc;
       }, {} as Record<string, UserStats>);
       setUserStats(statsMap);
@@ -143,6 +154,17 @@ export default function Feed() {
             <p className="text-warm-gray/40 text-sm">No neighbors found with those skills yet.</p>
           </div>
         )}
+
+        {hasMore && (
+          <div className="pt-4 flex justify-center">
+            <button
+              onClick={() => fetchPosts(true)}
+              className="text-sm font-bold text-warm-gray/60 hover:text-sage transition-colors py-2 px-6 rounded-full border border-warm-gray/10 hover:border-sage/20 bg-white/50"
+            >
+              Load more neighbors
+            </button>
+          </div>
+        )}
       </div>
 
       <ReplyModal 
@@ -150,9 +172,18 @@ export default function Feed() {
         onClose={() => setReplyingTo(null)} 
         onSuccess={() => {
           setReplyingTo(null);
+          setToast({ message: 'Reply sent! Neighbor notified.', type: 'success' });
           fetchPosts();
         }}
       />
+
+      {toast && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={() => setToast(null)} 
+        />
+      )}
     </div>
   );
 }
